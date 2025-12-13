@@ -4,6 +4,9 @@ print("micwin2135")
 
 from datetime import datetime
 import os
+import csv
+import openpyxl
+from openpyxl.chart import LineChart, BarChart, Reference
 
 student_id = "micwin2135"
 print(f"{student_id} Spreadsheet Automation Menu")
@@ -11,10 +14,11 @@ print(f"{student_id} Spreadsheet Automation Menu")
 menu_options = [
     "1. Input Data",
     "2. View Spreadsheet Data",
-    "3. Edit Spreadsheet",
+    "3. Generate Report",
     "4. Exit"
 ]
 
+# Display the menu options
 for option in menu_options:
     print(option)
 
@@ -35,7 +39,7 @@ def convertData(value, conversion_type):
 def insertData(path, data):
     """Appends comma-separated data to the CSV file, creating it if needed."""
     try:
-        with open(path, "a") as file:  # minimal permissions for append
+        with open(path, "a") as file:
             file.write(data + "\n")
         return True
     except Exception as e:
@@ -72,7 +76,6 @@ def getInput():
             print("Error: Invalid conversion type entered.")
             continue
 
-        # build line to write to CSV
         data_line = f"{date},{value},{conversion_type},{converted_value}"
 
         # Attempt to write using insertData()
@@ -83,14 +86,96 @@ def getInput():
         except Exception as e:
             print(f"Unexpected error: {e}")
 
+def createChart(path, chart_type):
+    """Generates a chart from the CSV data and saves it to an Excel file.
+    
+    Arguments:
+        path (str): The path to the CSV data file.
+        chart_type (str): The type of chart to generate ("line" or "bar").
+    
+    No return value. The chart is saved to 'final.xlsx'.
+    """
+    try:
+        # Read data from the CSV file
+        dates = []
+        values = []
+        converted_values = []
+
+        with open(path, 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                dates.append(row[0])  # Date in column 1
+                values.append(float(row[1]))  # Original value in column 2
+                converted_values.append(float(row[3]))  # Converted value in column 4
+
+        # Create a new Excel workbook
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Data"
+
+        # Write the data to the Excel sheet
+        for i, date in enumerate(dates):
+            ws.append([date, values[i], converted_values[i]])
+
+        # Create the chart
+        if chart_type == "line":
+            chart = LineChart()
+        elif chart_type == "bar":
+            chart = BarChart()
+        else:
+            print("Error: Invalid chart type specified.")
+            return
+
+        # Add data to the chart (Converted values as the series, dates as labels)
+        data = Reference(ws, min_col=3, min_row=1, max_row=len(dates))
+        categories = Reference(ws, min_col=1, min_row=2, max_row=len(dates))
+
+        chart.add_data(data, titles_from_data=True)
+        chart.set_categories(categories)
+
+        # Add the chart to the worksheet
+        ws.add_chart(chart, "E5")
+
+        # Set the title of the chart to <student_id> <current_date>
+        chart.title = f"{student_id} {datetime.now().strftime('%B %d, %Y')}"
+
+        # Save the Excel file
+        wb.save("final.xlsx")
+        print(f"Chart has been saved to final.xlsx.")
+
+    except Exception as e:
+        print(f"Error generating the chart: {e}")
+
+def generateReport(path):
+    """Generates a report based on the user's chart type choice.
+    
+    Arguments:
+        path (str): The path to the CSV data file.
+    
+    Calls createChart and generates either a line or bar chart.
+    """
+    chart_type = input("Which type of chart would you like to create? (line/bar): ").lower()
+    
+    # Validate the chart type
+    if chart_type not in ['line', 'bar']:
+        print("Error: Invalid chart type. Please choose either 'line' or 'bar'.")
+        return
+
+    # Call the createChart function to generate and save the chart
+    createChart(path, chart_type)
+
+# Main program logic based on user input
 if choice == "1":
     getInput()
 
 elif choice == "2":
     viewData("ZooData.csv")
 
-elif choice in ["3", "4"]:
-    print(f"You selected option {choice}. The time and date is {current_time}.")
+elif choice == "3":
+    generateReport("ZooData.csv")
+
+elif choice == "4":
+    print(f"You selected option 4. The time and date is {current_time}.")
 
 else:
     print("Error: Invalid choice selected.")
